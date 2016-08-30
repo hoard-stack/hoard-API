@@ -11,6 +11,7 @@ var passport = require('passport');
 var flash = require('connect-flash');
 var session = require('express-session');
 var databaseConfig = require('./config/database.js');
+var morgan = require('morgan');
 require('./config/passport')(passport);
 
 mongoose.connect(databaseConfig.connectionString);
@@ -41,6 +42,7 @@ app.set('port', 666);
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
+app.use(morgan('combined'));
 app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
