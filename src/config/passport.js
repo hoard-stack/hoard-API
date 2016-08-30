@@ -1,4 +1,9 @@
-var LocalStrategy = require('passport-local').Strategy;
+var JsonStrategy = require('passport-json').Strategy;
+var JwtStrategy = require('passport-jwt').Strategy,
+    ExtractJwt = require('passport-jwt').ExtractJwt;
+var opts = {}
+opts.jwtFromRequest = ExtractJwt.fromAuthHeader();
+opts.secretOrKey = "secret";
 
 // load up the user model
 var User = require('../models/user');
@@ -24,16 +29,30 @@ module.exports = function (passport) {
         });
     });
 
+    passport.use(new JwtStrategy(opts, function(jwt_payload, done) {
+        User.findOne({id: jwt_payload.sub}, function(err, user) {
+            if (err) {
+                return done(err, false);
+            }
+            if (user) {
+                done(null, user);
+            } else {
+                done(null, false);
+                // or you could create a new account
+            }
+        });
+    }));
+
     // =========================================================================
     // LOCAL SIGNUP ============================================================
     // =========================================================================
     // we are using named strategies since we have one for login and one for signup
     // by default, if there was no name, it would just be called 'local'
 
-    passport.use('local-signup', new LocalStrategy({
+    passport.use('local-signup', new JsonStrategy({
         // by default, local strategy uses username and password, we will override with email
-        usernameField: 'email',
-        passwordField: 'password',
+        usernameProp: 'email',
+        passwordProp: 'password',
         passReqToCallback: true // allows us to pass back the entire request to the callback
     },
     function (req, email, password, done) {
@@ -76,14 +95,13 @@ module.exports = function (passport) {
 
     }));
 
-    passport.use('local-login', new LocalStrategy({
+    passport.use('local-login', new JsonStrategy({
         // by default, local strategy uses username and password, we will override with email
-        usernameField : 'email',
-        passwordField : 'password',
+        usernameProp: 'email',
+        passwordProp: 'password',
         passReqToCallback : true // allows us to pass back the entire request to the callback
     },
     function(req, email, password, done) { // callback with email and password from our form
-
         // find a user whose email is the same as the forms email
         // we are checking to see if the user trying to login already exists
         User.findOne({ 'local.email' :  email }, function(err, user) {
@@ -102,7 +120,6 @@ module.exports = function (passport) {
             // all is well, return successful user
             return done(null, user);
         });
-
     }));
 
 };

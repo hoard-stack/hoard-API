@@ -1,5 +1,7 @@
 var mongoose = require('mongoose');
 var uuid = require('node-uuid');
+var jwt = require('jsonwebtoken');
+var secret = "secret";
 
 module.exports = function (app, passport) {
 
@@ -22,12 +24,13 @@ module.exports = function (app, passport) {
 
     // process the login form
     // app.post('/login', do all our passport stuff here);
-    app.post('/login', passport.authenticate('local-login', {
-        successRedirect: '/profile', // redirect to the secure profile section
-        failureRedirect: '/login', // redirect back to the signup page if there is an error
-        failureFlash: true // allow flash messages
-    }));
-
+    app.post('/login', passport.authenticate('local-login'), function(req, res){
+        if (req.user) { 
+            var token = jwt.sign({ id: req.user.id}, secret);
+            res.json({ token: "JWT " + token });
+        }
+        else { res.send(401); }
+    });
     // =====================================
     // SIGNUP ==============================
     // =====================================
@@ -40,28 +43,27 @@ module.exports = function (app, passport) {
 
     // process the signup form
     // app.post('/register', do all our passport stuff here);
-    app.post('/register', passport.authenticate('local-signup', {
-        successRedirect: '/profile', // redirect to the secure profile section
-        failureRedirect: '/register', // redirect back to the signup page if there is an error
-        failureFlash: true // allow flash messages
-    }));
+    app.post('/register', passport.authenticate('local-signup'), function(req, res){
+        if (req.user) { res.send(200); }
+        else { res.send(401); }
+    });
 
     // =====================================
     // PROFILE SECTION =====================
     // =====================================
     // we will want this protected so you have to be logged in to visit
     // we will use route middleware to verify this (the isLoggedIn function)
-    app.get('/profile', isLoggedIn, function (req, res) {
+    app.get('/profile', passport.authenticate('jwt', { session: false }), function (req, res) {
         res.render('profile.html', {
             user: req.user // get the user out of session and pass to template
         });
     });
 
-    app.get('/me', isLoggedIn, function (req, res) {
+    app.get('/me', passport.authenticate('jwt', { session: false }), function (req, res) {
         res.send({ email: req.user.local.email });
     });
 
-    app.get('/me/links', isLoggedIn, function (req, res) {
+    app.get('/me/links', passport.authenticate('jwt', { session: false }), function (req, res) {
         var userLinkModel = mongoose.model('UserLink');
         userLinkModel.findOne({userId: req.user._id}, function (err, userLink) {
             if (err) {/*error!!!*/ }
@@ -77,7 +79,7 @@ module.exports = function (app, passport) {
         });
     });
 
-    app.post('/me/links', isLoggedIn, function (req, res) {
+    app.post('/me/links', passport.authenticate('jwt', { session: false }), function (req, res) {
         var UserLinkModel = mongoose.model('UserLink');
         var sentLinks = req.body.links;
         if(!sentLinks || sentLinks.length === 0)
@@ -133,7 +135,7 @@ module.exports = function (app, passport) {
 
     });
 
-    app.delete('/me/links/:id', isLoggedIn, function (req, res) {
+    app.delete('/me/links/:id', passport.authenticate('jwt', { session: false }), function (req, res) {
         var UserLinkModel = mongoose.model('UserLink');
         var linkId = req.params.id;
         if(!linkId)
@@ -176,13 +178,3 @@ module.exports = function (app, passport) {
     });
 };
 
-// route middleware to make sure a user is logged in
-function isLoggedIn(req, res, next) {
-
-    // if user is authenticated in the session, carry on
-    if (req.isAuthenticated())
-        return next();
-
-    // if they aren't redirect them to the home page
-    res.redirect('/');
-}
